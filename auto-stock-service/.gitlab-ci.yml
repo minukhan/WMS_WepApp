@@ -1,0 +1,16 @@
+stages:
+  - build
+  - docker
+  - deploy
+
+include:
+  - project: 'hyundai-autoever-last-project-team4/be_deployment'
+    file: '/gradle-build-dev.yml'
+  - project: 'hyundai-autoever-last-project-team4/be_deployment'
+    file: '/docker-deploy-dev.yml'
+  - project: 'hyundai-autoever-last-project-team4/be_deployment'
+    file: '/ec2-deploy-dev.yml'
+
+variables:
+  IMAGE_NAME: "auto-stock-service"
+  PORT: "8302"

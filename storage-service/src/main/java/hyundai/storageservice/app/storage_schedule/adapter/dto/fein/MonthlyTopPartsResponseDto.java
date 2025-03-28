@@ -1,0 +1,17 @@
+package hyundai.storageservice.app.storage_schedule.adapter.dto.fein;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+
+import java.util.List;
+
+public record MonthlyTopPartsResponseDto(
+        @Schema(example = "2025")
+        int year,
+        @Schema(example = "3")
+        int month,
+        @Schema(example = "1000")
+        int totalMonthlyQuantity,
+        List<TopPartDetail> topParts
+) {
+}
+

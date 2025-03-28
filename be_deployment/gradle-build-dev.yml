@@ -1,0 +1,27 @@
+stages:
+  - build
+
+build_app:
+  stage: build
+  image: gradle:7.6-jdk17
+  script:
+    - chmod +x ./gradlew          # 실행 권한 추가
+    - |
+      echo "Creating application.yml from variable..."
+      mkdir -p ./src/main/resources
+      if [[ "$CI_COMMIT_BRANCH" == "dev" ]]; then
+        echo "$APPLICATION_YML" > ./src/main/resources/application.yml
+      elif [[ "$CI_COMMIT_BRANCH" == "main" ]]; then
+        echo "$APPLICATION_YML_PROD" > ./src/main/resources/application.yml
+      else
+        echo "🚫 No matching branch for application.yml!"
+        exit 1
+      fi
+    - ./gradlew clean build -x test  # Gradle 빌드 명령 실행
+  artifacts:
+    paths:
+      - build/libs/*.jar          # 빌드 결과물 경로 (Gradle 기준)
+    expire_in: 1 hour             # 아티팩트 유효 기간 (선택)
+  only:
+    - dev
+    - main

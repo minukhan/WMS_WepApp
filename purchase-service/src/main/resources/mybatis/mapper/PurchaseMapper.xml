@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="hyundai.purchaseservice.infrastructure.mapper.PurchaseMapper">
+
+    <select id="searchMonthRequest" resultType="SearchResponse">
+        SELECT id, part_id, quantity, requester_name, ordered_at, expected_delivery_date, total_price
+        FROM purchase_request
+        WHERE YEAR(expected_delivery_date) = YEAR(CURRENT_DATE)
+        AND MONTH(expected_delivery_date) = MONTH(CURRENT_DATE)
+    </select>
+
+    <select id="searchMonthRequestByPartId" resultType="SearchResponse">
+        SELECT id, part_id, quantity, requester_name, ordered_at, expected_delivery_date, total_price
+        FROM purchase_request
+        WHERE YEAR(expected_delivery_date) = YEAR(CURRENT_DATE)
+        AND MONTH(expected_delivery_date) = MONTH(CURRENT_DATE)
+        AND part_id IN
+        <foreach collection="partIds" item="partId" open="(" separator="," close=")">
+            #{partId}
+        </foreach>
+    </select>
+
+
+    <select id="searchRequests" resultType="SearchResponse">
+        SELECT id, part_id, quantity, requester_name, ordered_at, expected_delivery_date, total_price
+        FROM purchase_request
+        <trim prefix="WHERE" prefixOverrides="AND">
+            <if test='!"전체".equals(type)'>
+                status = #{type}
+            </if>
+            <if test="searchType != null">
+                AND ${searchType} LIKE CONCAT ('%', #{searchText}, '%')
+            </if>
+        </trim>
+        <choose>
+            <when test="orderType != null">
+                ORDER BY ${orderType} ${orderBy}
+            </when>
+            <otherwise>
+                ORDER BY id DESC
+            </otherwise>
+        </choose>
+        LIMIT #{size}
+        OFFSET #{page}
+    </select>
+
+    <select id="countRequests" resultType="long">
+        SELECT COUNT(*)
+        FROM purchase_request
+        <trim prefix="WHERE" prefixOverrides="AND">
+            <if test='!"전체".equals(type)'>
+                status = #{type}
+            </if>
+            <if test="searchType != null">
+                AND ${searchType} LIKE CONCAT ('%', #{searchText}, '%')
+            </if>
+        </trim>
+    </select>
+
+    <select id="searchRequestsByIds" resultType="SearchResponse">
+        SELECT id, part_id, quantity, requester_name, ordered_at, expected_delivery_date, total_price
+        FROM purchase_request
+        WHERE part_id IN
+        <foreach collection="ids" item="partId" open="(" separator="," close=")">
+            #{partId}
+        </foreach>
+        <if test='!"전체".equals(type)'>
+            AND status = #{type}
+        </if>
+        <choose>
+            <when test="orderType != null">
+                ORDER BY ${orderType} ${orderBy}
+            </when>
+            <otherwise>
+                ORDER BY id DESC
+            </otherwise>
+        </choose>
+        LIMIT #{size}
+        OFFSET #{page}
+    </select>
+
+    <select id="countRequestsByIds" resultType="long">
+        SELECT COUNT(*)
+        FROM purchase_request
+        WHERE part_id IN
+        <foreach collection="ids" item="partId" open="(" separator="," close=")">
+            #{partId}
+        </foreach>
+        <if test='!"전체".equals(type)'>
+            AND status = #{type}
+        </if>
+    </select>
+
+
+    <select id="searchRequestDetail" resultType="SearchResponse">
+        SELECT id, part_id, quantity, requester_name, ordered_at, expected_delivery_date, total_price
+        FROM purchase_request
+        WHERE id = #{id}
+    </select>
+
+
+    <!--    요청서 작성     -->
+
+    <select id="checkRequestExist" resultType="long">
+        SELECT COUNT(*)
+        FROM purchase_request
+        WHERE ordered_at = #{when}
+        AND part_id = #{partId}
+        AND requester_name != "자동 발주"
+    </select>
+
+    <insert id="saveRequest" parameterType="PartDto" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO purchase_request (part_id, quantity, requester_name, ordered_at, expected_delivery_date, total_price, status)
+        VALUES (#{partId}, #{quantity}, #{requester}, #{orderedAt}, #{expectedAt}, #{totalPrice}, #{status})
+    </insert>
+
+    <!--    통계 & 보고서 조회     -->
+    <select id="getYearlyMonthExpenses" resultType="GetMonthExpensesDto">
+        SELECT YEAR(ordered_at), MONTH(ordered_at), SUM(total_price)
+        FROM purchase_request
+        WHERE ordered_at
+            BETWEEN DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 11 MONTH), '%Y-%m-01')
+          AND LAST_DAY(CURRENT_DATE)
+        GROUP BY YEAR(ordered_at), MONTH(ordered_at)
+    </select>
+
+    <select id="getCurrentAndLastMonthExpenses" resultType="GetMonthExpensesDto">
+        SELECT YEAR(ordered_at), MONTH(ordered_at), SUM(total_price)
+        FROM purchase_request
+        WHERE ordered_at
+            BETWEEN #{from} AND #{to}
+        GROUP BY YEAR(ordered_at), MONTH(ordered_at)
+    </select>
+
+    <select id="getCurrentAndLastMonthRequests" resultType="GetMonthRequestDto">
+        SELECT YEAR(ordered_at), MONTH(ordered_at), COUNT(*)
+        FROM purchase_request
+        WHERE ordered_at
+            BETWEEN #{from} AND #{to}
+        GROUP BY YEAR(ordered_at), MONTH(ordered_at)
+    </select>
+
+    <select id="getTopTenCurrentMonthAutoRequest" resultType="PartIdAndQuantityResponse">
+        SELECT part_id, SUM(quantity)
+        FROM purchase_request
+        WHERE ordered_at
+            BETWEEN #{from} AND #{to}
+        AND requester_name = #{requesterName}
+        GROUP BY part_id
+        ORDER BY SUM(quantity) DESC
+        LIMIT 10
+    </select>
+
+    <select id="getLastMonthAutoRequestByPartIds" resultType="PartIdAndQuantityResponse">
+        SELECT part_id, SUM(quantity)
+        FROM purchase_request
+        WHERE ordered_at
+            BETWEEN #{from} AND #{to}
+        AND requester_name = #{requesterName}
+        AND part_id IN
+        <foreach collection="partIds" item="partId" open="(" separator="," close=")">
+            #{partId}
+        </foreach>
+        GROUP BY part_id
+    </select>
+
+    <select id="getTopTenCurrentMonthExpenses" resultType="PartIdAndPriceResponse">
+        SELECT part_id, SUM(total_price)
+        FROM purchase_request
+        WHERE ordered_at
+            BETWEEN #{from} AND #{to}
+        GROUP BY part_id
+        ORDER BY SUM(total_price) DESC
+        LIMIT 10
+    </select>
+
+    <select id="getLastMonthExpensesByPartIds" resultType="PartIdAndPriceResponse">
+        SELECT part_id, SUM(total_price)
+        FROM purchase_request
+        WHERE ordered_at
+            BETWEEN #{from} AND #{to}
+        AND part_id IN
+        <foreach collection="partIds" item="partId" open="(" separator="," close=")">
+            #{partId}
+        </foreach>
+        GROUP BY part_id
+    </select>
+</mapper>

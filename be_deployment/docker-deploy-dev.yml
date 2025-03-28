@@ -1,0 +1,32 @@
+stages:
+  - docker
+
+build_and_push:
+  stage: docker
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_DRIVER: overlay2
+  script:
+    - echo "$DOCKER_PASSWORD" | docker login --username "$DOCKER_USERNAME" --password-stdin
+    - |
+      if [[ "$CI_COMMIT_BRANCH" == "dev" ]]; then
+        IMAGE_TAG="$DOCKER_USERNAME/$DOCKERHUB_REPO_DEV:$CI_COMMIT_SHORT_SHA"
+      elif [[ "$CI_COMMIT_BRANCH" == "main" ]]; then
+        IMAGE_TAG="$DOCKER_USERNAME/$DOCKERHUB_REPO_PROD:$CI_COMMIT_SHORT_SHA"
+      else
+        echo "🚫 No matching branch for deployment!"
+        exit 1
+      fi
+    - docker build --build-arg DEPENDENCY=build/dependency -t "$IMAGE_TAG" --platform linux/amd64 .
+    - docker push "$IMAGE_TAG"
+  after_script:
+    - echo "🔥 Cleaning up images..."
+    - docker image prune -f
+    - docker images "$DOCKER_USERNAME" -q | xargs -r docker rmi -f
+  dependencies:
+    - build_app
+  only:
+    - dev
+    - main

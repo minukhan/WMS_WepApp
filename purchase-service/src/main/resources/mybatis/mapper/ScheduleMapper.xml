@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="hyundai.purchaseservice.infrastructure.mapper.ScheduleMapper">
+
+    <insert id="registerSchedule" parameterType="java.util.List">
+        INSERT INTO purchase_schedule
+        (purchase_request_id, scheduled_at, status, section_id, processed_quantity, requested_quantity)
+        VALUES
+        <foreach collection="saveScheduleDto" item="schedule" separator=",">
+            (#{schedule.requestId}, #{schedule.scheduledAt}, #{schedule.status}, #{schedule.sectionId}, #{schedule.processedQuantity}, #{schedule.requestedQuantity})
+        </foreach>
+    </insert>
+
+    <select id="getPartIdAndQuantity" resultType="PartIdAndQuantityResponse">
+        SELECT pr.part_id, pr.quantity FROM purchase_schedule ps
+            JOIN purchase_request pr ON ps.purchase_request_id = pr.id
+        WHERE ps.scheduled_at BETWEEN #{from} AND #{to}
+        AND pr.part_id IN
+        <foreach collection="partIds" item="partId" open="(" separator="," close=")">
+            #{partId}
+        </foreach>
+    </select>
+
+
+    <select id="storeAmountUntilArrivalDate" resultType="StoreDeliveryAmountBySectionIdDto">
+        SELECT ps.section_id, pr.part_id, SUM(ps.requested_quantity - ps.processed_quantity)
+        FROM purchase_schedule ps
+            JOIN purchase_request pr ON ps.purchase_request_id = pr.id
+        WHERE ps.scheduled_at BETWEEN CURRENT_DATE AND #{to}
+        AND ps.section_id IN
+        <foreach collection="sectionIds" item="sectionId" open="(" separator="," close=")">
+            #{sectionId}
+        </foreach>
+        GROUP BY ps.section_id, pr.part_id
+    </select>
+
+    <select id="storeAmountUntilArrivalDateBySection" resultType="StoreDeliveryAmountBySectionIdDto">
+        SELECT section_id, NULL, SUM(requested_quantity - processed_quantity)
+        FROM purchase_schedule
+        WHERE scheduled_at BETWEEN CURRENT_DATE AND #{to}
+        GROUP BY section_id
+    </select>
+
+
+    <select id="getTotalStoreAmountUntilArrivalDate" resultType="long">
+        SELECT SUM(requested_quantity - processed_quantity)
+        FROM purchase_schedule
+        WHERE scheduled_at BETWEEN CURRENT_DATE AND #{to}
+    </select>
+
+    <!-- 스케줄 조회 -->
+
+    <select id="getScheduleDates" resultType="java.time.LocalDate">
+        SELECT DATE(scheduled_at) FROM purchase_schedule
+        WHERE YEAR(scheduled_at) = #{year}
+        AND MONTH(scheduled_at) = #{month}
+    </select>
+
+
+    <select id="getSchedules" resultType="GetScheduleResponse">
+        SELECT pr.part_id, pr.quantity, ps.requested_quantity, pr.total_price, DATE(ps.scheduled_at), ps.section_id
+        FROM purchase_schedule ps
+        JOIN purchase_request pr ON ps.purchase_request_id = pr.id
+        WHERE YEAR(scheduled_at) = #{year}
+        AND MONTH(scheduled_at) = #{month}
+    </select>
+
+    <select id="getDayScheduleSearch" parameterType="GetScheduleDto" resultType="GetScheduleResponse">
+        SELECT pr.part_id, pr.quantity, ps.requested_quantity, pr.total_price, DATE(ps.scheduled_at), ps.section_id
+        FROM purchase_schedule ps
+            JOIN purchase_request pr ON ps.purchase_request_id = pr.id
+        WHERE DATE(ps.scheduled_at) = CURDATE()
+        <if test="searchType != null">
+            AND ${searchType} LIKE CONCAT ('%', #{searchText}, '%')
+        </if>
+        <if test="orderType != null">
+            ORDER BY ${orderType} ${orderBy}
+        </if>
+    </select>
+
+    <select id="getDayScheduleSearchCount" resultType="long">
+        SELECT COUNT(*)
+        FROM purchase_schedule ps
+        JOIN purchase_request pr ON ps.purchase_request_id = pr.id
+        WHERE DATE(scheduled_at) = CURDATE()
+        <if test="searchType != null">
+            AND ${searchType} LIKE CONCAT ('%', #{searchText}, '%')
+        </if>
+    </select>
+
+    <select id="getDayScheduleWithPartIds" parameterType="GetScheduleDto" resultType="GetScheduleResponse">
+        SELECT pr.part_id, pr.quantity, ps.requested_quantity, pr.total_price, DATE(ps.scheduled_at), ps.section_id
+        FROM purchase_schedule ps
+            JOIN purchase_request pr ON ps.purchase_request_id = pr.id
+        WHERE DATE(scheduled_at) = CURDATE()
+        AND part_id IN
+        <foreach collection="partIds" item="partId" open="(" separator="," close=")">
+            #{partId}
+        </foreach>
+        <if test="orderType != null">
+            ORDER BY ${orderType} ${orderBy}
+        </if>
+    </select>
+
+    <select id="getDayScheduleCountWithPartIds" resultType="long">
+        SELECT COUNT(*)
+        FROM purchase_schedule ps
+        JOIN purchase_request pr ON ps.purchase_request_id = pr.id
+        WHERE DATE(scheduled_at) = CURDATE()
+        AND part_id IN
+        <foreach collection="partIds" item="partId" open="(" separator="," close=")">
+            #{partId}
+        </foreach>
+    </select>
+
+    <select id="getDayScheduleWithSectionIds" resultType="GetScheduleResponse">
+        SELECT pr.part_id, pr.quantity, ps.requested_quantity, pr.total_price, DATE(ps.scheduled_at), ps.section_id
+        FROM purchase_schedule ps
+            JOIN purchase_request pr ON ps.purchase_request_id = pr.id
+        WHERE DATE(scheduled_at) = CURDATE()
+        AND section_id IN
+        <foreach collection="sectionIds" item="sectionId" open="(" separator="," close=")">
+            #{sectionId}
+        </foreach>
+        <if test="orderType != null">
+            ORDER BY ${orderType} ${orderBy}
+        </if>
+    </select>
+
+    <select id="getDayScheduleCountWithSectionIds" resultType="long">
+        SELECT COUNT(*)
+        FROM purchase_schedule ps
+                 JOIN purchase_request pr ON ps.purchase_request_id = pr.id
+        WHERE DATE(scheduled_at) = CURDATE()
+        AND section_id IN
+        <foreach collection="sectionIds" item="sectionId" open="(" separator="," close=")">
+            #{sectionId}
+        </foreach>
+    </select>
+
+    <select id="getDaySchedule" resultType="GetDayScheduleQuantitesResponse">
+        SELECT pr.part_id, SUM(pr.quantity), SUM(ps.processed_quantity)
+        FROM purchase_schedule ps
+                 JOIN purchase_request pr ON ps.purchase_request_id = pr.id
+        WHERE ps.scheduled_at = CURRENT_DATE
+        GROUP BY pr.part_id
+    </select>
+
+    <select id="getTomorrowSchedule" resultType="GetProgressPercentResponse">
+        SELECT pr.part_id, SUM(ps.requested_quantity), SUM(ps.processed_quantity), ps.section_id
+        FROM purchase_schedule ps
+                 JOIN purchase_request pr ON ps.purchase_request_id = pr.id
+        WHERE ps.scheduled_at = CURRENT_DATE + INTERVAL 1 DAY
+        GROUP BY pr.part_id, ps.section_id
+    </select>
+
+    <!-- 통계 관련 -->
+    <select id="getProgressPercent" resultType="GetProgressPercentResponse">
+        SELECT pr.part_id, ps.requested_quantity, ps.processed_quantity, ps.section_id
+        FROM purchase_schedule ps
+            JOIN purchase_request pr ON ps.purchase_request_id = pr.id
+        WHERE ps.scheduled_at = CURRENT_DATE
+    </select>
+
+
+    <!-- 입고 작업 관련 -->
+
+    <select id="checkProcessedQuantity" resultType="ScheduleIdAndQuantityResponse">
+        SELECT ps.id, ps.purchase_request_id, ps.processed_quantity
+        FROM purchase_schedule ps
+                 JOIN purchase_request pr ON ps.purchase_request_id = pr.id
+        WHERE ps.scheduled_at = CURRENT_DATE
+        AND ps.section_id = #{sectionId}
+        AND pr.part_id = #{partId}
+        AND ps.status = "요청 중"
+    </select>
+
+    <select id="checkWorkingRequest">
+        UPDATE purchase_request pr
+        SET pr.status = CASE
+            WHEN EXISTS(SELECT 1
+                        FROM purchase_schedule ps
+                        WHERE ps.purchase_request_id = #{requestId}
+                          AND ps.status = "요청 중")
+            THEN pr.status
+            ELSE "완료"
+        END
+        WHERE pr.id = #{requestId}
+    </select>
+
+    <update id="addProcessedQuantity">
+        UPDATE purchase_schedule
+        SET processed_quantity = #{processedQuantity},
+            status = CASE
+                WHEN #{processedQuantity} = requested_quantity THEN "완료"
+                ELSE status
+        END
+        WHERE id = #{scheduleId}
+    </update>
+</mapper>

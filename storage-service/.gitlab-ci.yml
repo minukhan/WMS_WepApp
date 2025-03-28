@@ -1,0 +1,18 @@
+stages:
+  - build
+  - docker
+  - deploy
+
+include:
+  - project: 'hyundai-autoever-last-project-team4/be_deployment'
+    file: '/gradle-build-dev.yml'
+  - project: 'hyundai-autoever-last-project-team4/be_deployment'
+    file: '/docker-deploy-dev.yml'
+  - project: 'hyundai-autoever-last-project-team4/be_deployment'
+    file: '/ec2-deploy-dev.yml'
+
+variables:
+  # ⭐️ [수정 필요] 사용할 이미지 name = 프로젝트 이름과 동일하게
+  IMAGE_NAME: "storage-service"
+  # ⭐️ [수정 필요] 사용할 포트 번호 = 프로젝트 yml, dockerfile과 동일하게
+  PORT: "8401"
