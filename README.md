@@ -7,7 +7,7 @@
 
 ## 🎥 프로젝트 시연 영상
 
-[![WareHouse 시연 영상](https://youtu.be/3X-j1Fs8tEU)](https://youtu.be/vIVot70bqFA)
+[![WareHouse 시연 영상](https://youtu.be/vIVot70bqFA)](https://youtu.be/vIVot70bqFA)
 
 위 이미지를 클릭하면 YouTube에서 전체 영상을 볼 수 있습니다.
 
